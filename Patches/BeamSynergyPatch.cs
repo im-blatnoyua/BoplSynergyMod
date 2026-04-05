@@ -17,6 +17,15 @@ namespace BoplSynergyMod.Patches
         {
             try
             {
+                // Логируем время луча (только один раз)
+                var timeSinceBeamStart = Traverse.Create(__instance).Field("timeSinceBeamStart").GetValue<Fix>();
+                if (timeSinceBeamStart == Fix.Zero)
+                {
+                    var maxTime = Traverse.Create(__instance).Field("maxTime").GetValue<Fix>();
+                    var maxTimeAir = Traverse.Create(__instance).Field("maxTimeAir").GetValue<Fix>();
+                    Plugin.Log.LogInfo($"[BeamSynergy] Beam maxTime: {maxTime} ({(float)maxTime}s), maxTimeAir: {maxTimeAir} ({(float)maxTimeAir}s)");
+                }
+
                 // Получаем игрока
                 var ability = Traverse.Create(__instance).Field("ability").GetValue<Ability>();
                 if (ability == null) return;
