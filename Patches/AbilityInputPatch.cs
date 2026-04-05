@@ -10,8 +10,16 @@ namespace BoplSynergyMod.Patches
     [HarmonyPatch(typeof(SlimeController), "OldUpdate")]
     public static class AbilityInputPatch
     {
+        private static bool hasLoggedOnce = false;
+
         static bool Prefix(SlimeController __instance, Fix simDeltaTime)
         {
+            if (!hasLoggedOnce)
+            {
+                Plugin.Log.LogInfo("[AbilityInputPatch] Patch is active!");
+                hasLoggedOnce = true;
+            }
+
             // Получаем игрока
             int playerId = __instance.GetPlayerId();
             Player player = PlayerHandler.Get().GetPlayer(playerId);

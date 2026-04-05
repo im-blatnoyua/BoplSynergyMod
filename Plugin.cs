@@ -22,10 +22,12 @@ namespace BoplSynergyMod
             {
                 harmony.PatchAll();
                 Log.LogInfo("[BoplSynergyMod] All patches applied successfully.");
+                Log.LogInfo("[BoplSynergyMod] Synergy system initialized!");
             }
             catch (Exception ex)
             {
                 Log.LogError($"[BoplSynergyMod] Patch failed: {ex.Message}");
+                Log.LogError($"[BoplSynergyMod] Stack trace: {ex.StackTrace}");
             }
 
             Log.LogInfo("[BoplSynergyMod] Loaded successfully!");
