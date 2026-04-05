@@ -122,13 +122,11 @@ namespace BoplSynergyMod.Patches
 
         private static void ApplyBeamDuplicateSynergy(SlimeController controller, Player player, int button1, int button2)
         {
-            // Просто активируем луч - тройной эффект будет в BeamUpdatePatch
             int beamIndex = FindAbilityIndex(controller, "beam");
             if (beamIndex == -1) return;
 
             Traverse.Create(controller).Method("EnterAbility", beamIndex, false).GetValue();
 
-            // Отдача назад
             Vec2 aimVector = player.AimVector();
             Vec2 recoil = aimVector * (Fix)(-30.0);
             controller.body.selfImposedVelocity += recoil;
@@ -141,52 +139,41 @@ namespace BoplSynergyMod.Patches
 
         private static void ApplyBeamGrowSynergy(SlimeController controller, Player player, int button1, int button2)
         {
-            // Активируем способность увеличения напрямую
-            int growIndex = FindAbilityIndex(controller, "grow");
-            if (growIndex == -1) growIndex = FindAbilityIndex(controller, "shootscale");
+            int beamIndex = FindAbilityIndex(controller, "beam");
+            if (beamIndex == -1) return;
 
-            if (growIndex != -1)
-            {
-                Traverse.Create(controller).Method("EnterAbility", growIndex, false).GetValue();
-            }
+            Traverse.Create(controller).Method("EnterAbility", beamIndex, false).GetValue();
 
             SetCooldown(controller, button1);
             SetCooldown(controller, button2);
 
-            Plugin.Log.LogInfo("[Synergy] Applied Beam+Grow: activated grow ability");
+            Plugin.Log.LogInfo("[Synergy] Applied Beam+Grow: will grow/shrink objects");
         }
 
         private static void ApplyBeamMagnetSynergy(SlimeController controller, Player player, int button1, int button2)
         {
-            // Активируем способность магнита напрямую
-            int magnetIndex = FindAbilityIndex(controller, "magnet");
-            if (magnetIndex == -1) magnetIndex = FindAbilityIndex(controller, "telekin");
+            int beamIndex = FindAbilityIndex(controller, "beam");
+            if (beamIndex == -1) return;
 
-            if (magnetIndex != -1)
-            {
-                Traverse.Create(controller).Method("EnterAbility", magnetIndex, false).GetValue();
-            }
+            Traverse.Create(controller).Method("EnterAbility", beamIndex, false).GetValue();
 
             SetCooldown(controller, button1);
             SetCooldown(controller, button2);
 
-            Plugin.Log.LogInfo("[Synergy] Applied Beam+Magnet: activated magnet ability");
+            Plugin.Log.LogInfo("[Synergy] Applied Beam+Magnet: will push/pull objects");
         }
 
         private static void ApplyBeamShrinkSynergy(SlimeController controller, Player player, int button1, int button2)
         {
-            // Активируем способность уменьшения напрямую
-            int shrinkIndex = FindAbilityIndex(controller, "scalechanger");
+            int beamIndex = FindAbilityIndex(controller, "beam");
+            if (beamIndex == -1) return;
 
-            if (shrinkIndex != -1)
-            {
-                Traverse.Create(controller).Method("EnterAbility", shrinkIndex, false).GetValue();
-            }
+            Traverse.Create(controller).Method("EnterAbility", beamIndex, false).GetValue();
 
             SetCooldown(controller, button1);
             SetCooldown(controller, button2);
 
-            Plugin.Log.LogInfo("[Synergy] Applied Beam+Shrink: activated shrink ability");
+            Plugin.Log.LogInfo("[Synergy] Applied Beam+Shrink: will shrink objects");
         }
 
         private static void SetCooldown(SlimeController controller, int abilityIndex)
