@@ -245,35 +245,45 @@ namespace BoplSynergyMod.Patches
         {
             // Проверяем что луч уже активен (не в стадии зарядки)
             var beamIndex = Traverse.Create(beam).Field("beamIndex").GetValue<int>();
-            if (beamIndex < 0) return; // Луч ещё заряжается
+            if (beamIndex < 0)
+            {
+                Plugin.Log.LogInfo($"[Shrink] Beam not active yet (beamIndex={beamIndex})");
+                return;
+            }
 
             var staffDir = Traverse.Create(beam).Field("staffDir").GetValue<Vec2>();
             Vec2 firePos = body.position + staffDir * (Fix)2.0;
 
             Fix maxDistance = (Fix)100L;
-            // Добавляем "wall" для попадания в острова
             LayerMask collisionMask = LayerMask.GetMask("Default", "item", "wall");
             RaycastInformation hit = DetPhysics.Get().RaycastToClosest(firePos, staffDir, maxDistance, collisionMask);
 
+            Plugin.Log.LogInfo($"[Shrink] Raycast from ({firePos.x},{firePos.y}) dir ({staffDir.x},{staffDir.y}), hit={hit != null}");
+
             if (hit && hit.pp.fixTrans != null)
             {
+                Plugin.Log.LogInfo($"[Shrink] Hit object: {hit.pp.fixTrans.gameObject.name}, layer={hit.pp.fixTrans.gameObject.layer}");
+
                 var targetBody = hit.pp.fixTrans.GetComponent<BoplBody>();
                 if (targetBody != null)
                 {
-                    // Реверс увеличения: уменьшаем с той же скоростью но в обратную сторону
-                    Fix shrinkPerSecond = (Fix)(-0.2); // Отрицательное значение для уменьшения
+                    Fix oldScale = targetBody.Scale;
+                    // Уменьшаем напрямую как в ApplyGrowBeamEffect, но с отрицательным значением
+                    Fix shrinkPerSecond = (Fix)0.2;
                     Fix shrinkThisFrame = shrinkPerSecond * deltaTime;
+                    targetBody.Scale -= shrinkThisFrame;
 
-                    // Применяем изменение с минимальным размером 0.1
-                    Fix newScale = targetBody.Scale + shrinkThisFrame;
-                    if (newScale > (Fix)0.1)
+                    // Ограничиваем минимальный размер
+                    if (targetBody.Scale < (Fix)0.1)
                     {
-                        targetBody.Scale = newScale;
+                        targetBody.Scale = (Fix)0.1;
                     }
-                    else
-                    {
-                        targetBody.Scale = (Fix)0.1; // Не даём стать меньше минимума
-                    }
+
+                    Plugin.Log.LogInfo($"[Shrink] Scale changed: {oldScale} -> {targetBody.Scale}");
+                }
+                else
+                {
+                    Plugin.Log.LogWarning($"[Shrink] No BoplBody found on {hit.pp.fixTrans.gameObject.name}");
                 }
             }
         }
