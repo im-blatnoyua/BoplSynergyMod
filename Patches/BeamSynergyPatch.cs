@@ -121,26 +121,34 @@ namespace BoplSynergyMod.Patches
 
         private static void ApplyGrowSynergy(Beam beam, SlimeController controller, Player player, AbilityMonoBehaviour growAbility)
         {
-            // Находим ShootScaleChange
-            var scaleGun = growAbility.GetComponent<ShootScaleChange>();
-            if (scaleGun == null)
-            {
-                Plugin.Log.LogWarning("[BeamSynergy] No ShootScaleChange found!");
-                return;
-            }
-
             Vec2 aimVector = player.AimVector();
             Vec2 firePos = controller.body.position + aimVector * (Fix)2.0;
 
-            // Стреляем лучом увеличения
-            bool hasFired = false;
-            scaleGun.Shoot(firePos, aimVector, ref hasFired, player.Id);
+            // Raycast для поиска объектов
+            Fix maxDistance = (Fix)100L;
+            LayerMask collisionMask = LayerMask.GetMask("Default", "item");
+            RaycastInformation hit = DetPhysics.Get().RaycastToClosest(firePos, aimVector, maxDistance, collisionMask);
 
-            // Уменьшаем игрока
+            if (hit && hit.pp.fixTrans != null)
+            {
+                // Увеличиваем объект постепенно
+                var targetBody = hit.pp.fixTrans.GetComponent<BoplBody>();
+                if (targetBody != null)
+                {
+                    // Рост: +0.2 за секунду, за 5 секунд = x2
+                    Fix growthPerSecond = (Fix)0.2;
+                    Fix growthThisFrame = growthPerSecond * (Fix)0.016; // ~60 FPS
+                    targetBody.Scale += growthThisFrame;
+                }
+            }
+
+            // Уменьшаем игрока постепенно
             if (player.Scale > (Fix)0.3)
             {
-                player.Scale = Fix.Max(player.Scale * (Fix)0.9, (Fix)0.3);
-                Plugin.Log.LogInfo($"[BeamSynergy] Player scale: {player.Scale}");
+                // Уменьшение: -0.1 за секунду, за 5 секунд = /2
+                Fix shrinkPerSecond = (Fix)0.1;
+                Fix shrinkThisFrame = shrinkPerSecond * (Fix)0.016; // ~60 FPS
+                player.Scale = Fix.Max(player.Scale - shrinkThisFrame, (Fix)0.3);
             }
         }
 
