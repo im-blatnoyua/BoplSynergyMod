@@ -15,18 +15,26 @@ namespace BoplSynergyMod.Patches
         {
             try
             {
+                Plugin.Log.LogInfo($"[BeamUpdate] Postfix called");
+
                 var ability = Traverse.Create(__instance).Field("ability").GetValue<Ability>();
-                if (ability == null) return;
+                if (ability == null)
+                {
+                    Plugin.Log.LogInfo($"[BeamUpdate] ability is null");
+                    return;
+                }
 
                 var playerInfo = ability.GetPlayerInfo();
                 var player = PlayerHandler.Get().GetPlayer(playerInfo.playerId);
-                if (player == null) return;
+                if (player == null)
+                {
+                    Plugin.Log.LogInfo($"[BeamUpdate] player is null");
+                    return;
+                }
 
                 int synergyType = SlimeControllerSynergyPatch.GetActiveSynergy(player.Id);
-                if (synergyType != 0)
-                {
-                    Plugin.Log.LogInfo($"[BeamUpdate] Player {player.Id} has synergy type {synergyType}");
-                }
+                Plugin.Log.LogInfo($"[BeamUpdate] Player {player.Id} synergyType={synergyType}");
+
                 if (synergyType == 0) return;
 
                 var body = Traverse.Create(__instance).Field("body").GetValue<PlayerBody>();
