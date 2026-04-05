@@ -6,7 +6,7 @@ namespace BoplSynergyMod.Synergies
 {
     /// <summary>
     /// Синергия: Луч + Перемещение объектов
-    /// Притягивает объекты к игроку
+    /// Создаёт эффект притягивания как у синей чёрной дыры
     /// </summary>
     public static class BeamTelekinesisSynergy
     {
@@ -30,13 +30,22 @@ namespace BoplSynergyMod.Synergies
                 var targetBody = hit.pp.fixTrans.GetComponent<BoplBody>();
                 if (targetBody != null)
                 {
-                    // Притягиваем к игроку
-                    Vec2 pullDirection = Vec2.NormalizedSafe(controller.body.position - targetBody.position);
-                    Fix pullStrength = (Fix)15.0;
-                    targetBody.velocity += pullDirection * pullStrength;
+                    // Используем формулу притягивания как у чёрной дыры
+                    Vec2 direction = controller.body.position - targetBody.position;
+                    Fix distance = Vec2.Magnitude(direction);
 
-                    Plugin.Log.LogInfo("[BeamTelekinesis] Pulling object!");
-                    AudioManager.Get()?.Play("fireRaygun");
+                    if (distance > (Fix)0.3) // minDistance
+                    {
+                        Vec2 normalized = direction / distance;
+                        Fix G = (Fix)1000L; // Гравитационная константа как у BlackHole
+                        Fix force = G / (distance * distance);
+
+                        // Применяем силу
+                        targetBody.velocity += normalized * force * (Fix)0.016; // simDeltaTime
+
+                        Plugin.Log.LogInfo("[BeamTelekinesis] Pulling with gravity!");
+                        AudioManager.Get()?.Play("fireRaygun");
+                    }
                 }
             }
         }
