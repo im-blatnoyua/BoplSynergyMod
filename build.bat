@@ -1,11 +1,102 @@
 @echo off
+setlocal enabledelayedexpansion
+
+echo ===== Bopl Synergy Mod - Build =====
+echo.
+
+:: 1. Check dotnet
+dotnet --version >nul 2>&1
+if errorlevel 1 (
+    echo [ERROR] dotnet SDK not found.
+    pause
+    exit /b 1
+)
+echo [OK] dotnet found
+
+:: 2. Find game folder
+set "GAME_DIR="
+
+for /f "tokens=2*" %%a in ('reg query "HKLM\SOFTWARE\WOW6432Node\Valve\Steam" /v "InstallPath" 2^>nul') do set "STEAM_REG=%%b"
+
+if defined STEAM_REG (
+    if exist "!STEAM_REG!\steamapps\common\Bopl Battle\BoplBattle.exe" (
+        set "GAME_DIR=!STEAM_REG!\steamapps\common\Bopl Battle"
+    )
+)
+
+if not defined GAME_DIR (
+    echo [WARN] Game not found automatically.
+    echo.
+)
+
+:: 3. Copy DLLs to libs/ if game found
+if defined GAME_DIR (
+    echo [OK] Game found: !GAME_DIR!
+
+    if exist "!GAME_DIR!\BepInEx\core" (
+        echo [OK] BepInEx found
+
+        echo Copying DLLs to libs/...
+        cd /d "%~dp0"
+        if not exist "libs" mkdir libs
+
+        set "MANAGED=!GAME_DIR!\BoplBattle_Data\Managed"
+        set "BEPINEX_CORE=!GAME_DIR!\BepInEx\core"
+
+        for %%F in (
+            UnityEngine.dll
+            UnityEngine.CoreModule.dll
+            UnityEngine.InputLegacyModule.dll
+            UnityEngine.PhysicsModule.dll
+            Assembly-CSharp.dll
+            Facepunch.Steamworks.Win64.dll
+            netstandard.dll
+        ) do (
+            if exist "!MANAGED!\%%F" (
+                copy /y "!MANAGED!\%%F" "libs\%%F" >nul
+            )
+        )
+
+        for %%F in (BepInEx.dll 0Harmony.dll) do (
+            if exist "!BEPINEX_CORE!\%%F" (
+                copy /y "!BEPINEX_CORE!\%%F" "libs\%%F" >nul
+            )
+        )
+
+        echo [OK] libs/ populated
+    )
+)
+
+:: 4. Build
+echo.
+echo Building mod...
 dotnet build -c Release
-if %errorlevel% neq 0 exit /b %errorlevel%
+if errorlevel 1 (
+    echo [ERROR] Build failed
+    pause
+    exit /b 1
+)
 
-set BOPL_PATH=%USERPROFILE%\.steam\steam\steamapps\common\Bopl Battle
-set PLUGIN_PATH=%BOPL_PATH%\BepInEx\plugins\BoplSynergyMod
+:: 5. Copy to local output folder
+cd /d "%~dp0"
+if not exist "output" mkdir output
+copy /y "bin\Release\net471\BoplSynergyMod.dll" "output\BoplSynergyMod.dll"
+if errorlevel 1 (
+    echo [ERROR] Failed to copy to output folder
+    pause
+    exit /b 1
+)
 
-if not exist "%PLUGIN_PATH%" mkdir "%PLUGIN_PATH%"
-copy /Y "bin\Release\net471\BoplSynergyMod.dll" "%PLUGIN_PATH%\"
-
-echo Build complete and copied to game directory!
+echo.
+echo [OK] Build complete!
+echo.
+echo DLL copied to: %~dp0output\BoplSynergyMod.dll
+echo.
+echo To install:
+if defined GAME_DIR (
+    echo   Copy to: !GAME_DIR!\BepInEx\plugins\
+) else (
+    echo   Copy to: [Game folder]\BepInEx\plugins\
+)
+echo.
+pause
