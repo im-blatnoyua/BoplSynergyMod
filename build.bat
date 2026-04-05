@@ -77,12 +77,8 @@ if errorlevel 1 (
     exit /b 1
 )
 
-:: 5. Copy to local output folder
+:: 5. Copy to output and plugins
 cd /d "%~dp0"
-if not exist "output" mkdir output
-
-echo.
-echo Copying DLL to output folder...
 
 :: Проверяем оба возможных пути
 set "DLL_PATH="
@@ -99,31 +95,40 @@ if not defined DLL_PATH (
     exit /b 1
 )
 
+echo.
 echo Found DLL at: !DLL_PATH!
-copy /y "!DLL_PATH!" "output\BoplSynergyMod.dll"
-if errorlevel 1 (
-    echo [ERROR] Failed to copy to output folder
-    pause
-    exit /b 1
-)
 
-if not exist "output\BoplSynergyMod.dll" (
-    echo [ERROR] DLL not found in output folder after copy
-    pause
-    exit /b 1
-)
+:: Копируем в локальную папку output
+if not exist "output" mkdir output
+copy /y "!DLL_PATH!" "output\BoplSynergyMod.dll" >nul
+echo [OK] Copied to: %~dp0output\BoplSynergyMod.dll
 
-echo [OK] DLL copied successfully
-echo.
-echo File location: %~dp0output\BoplSynergyMod.dll
-echo File size:
-dir "output\BoplSynergyMod.dll" | find "BoplSynergyMod.dll"
-echo.
-echo To install:
+:: Копируем в игру если найдена
 if defined GAME_DIR (
-    echo   Copy to: !GAME_DIR!\BepInEx\plugins\
+    if exist "!GAME_DIR!\BepInEx\plugins" (
+        echo.
+        echo Installing to game...
+        copy /y "!DLL_PATH!" "!GAME_DIR!\BepInEx\plugins\BoplSynergyMod.dll" >nul
+        if exist "!GAME_DIR!\BepInEx\plugins\BoplSynergyMod.dll" (
+            echo [OK] Installed to: !GAME_DIR!\BepInEx\plugins\BoplSynergyMod.dll
+        ) else (
+            echo [WARN] Failed to copy to plugins folder
+        )
+    )
+)
+
+echo.
+echo.
+echo [OK] Build complete!
+echo.
+if defined GAME_DIR (
+    if exist "!GAME_DIR!\BepInEx\plugins\BoplSynergyMod.dll" (
+        echo Mod installed and ready to use!
+    ) else (
+        echo Manual install: Copy output\BoplSynergyMod.dll to game plugins folder
+    )
 ) else (
-    echo   Copy to: [Game folder]\BepInEx\plugins\
+    echo Manual install: Copy output\BoplSynergyMod.dll to game plugins folder
 )
 echo.
 pause
