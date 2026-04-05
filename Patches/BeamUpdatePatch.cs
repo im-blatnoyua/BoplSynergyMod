@@ -56,10 +56,10 @@ namespace BoplSynergyMod.Patches
             var playerBeamColor = Traverse.Create(beam).Field("playerBeamColor").GetValue<DetPhysics.BeamColors>();
             var beamOffset = Traverse.Create(beam).Field("beamOffset").GetValue<Fix>();
             var currentGround = Traverse.Create(beam).Field("currentGround").GetValue<StickyRoundedRectangle>();
+            var staffDir = Traverse.Create(beam).Field("staffDir").GetValue<Vec2>();
 
-            Vec2 aimVector = player.AimVector();
-            Vec2 position = body.position + aimVector * beamOffset;
-            Fix scale = player.Scale;
+            Vec2 position = body.position + staffDir * beamOffset;
+            Fix scale = body.fixtrans.Scale;
 
             // Проверяем уровень воды (как в строке 627)
             if (position.y < Constants.WATER_HEIGHT && Constants.leveltype != LevelType.space)
@@ -69,13 +69,13 @@ namespace BoplSynergyMod.Patches
 
             Fix angle45 = (Fix)0.785398;
 
-            Vec2 direction1 = RotateVector(aimVector, angle45);
-            Vec2 direction2 = RotateVector(aimVector, -angle45);
+            Vec2 direction1 = RotateVector(staffDir, angle45);
+            Vec2 direction2 = RotateVector(staffDir, -angle45);
 
-            // Используем отрицательные ID чтобы они не убивали владельца
-            // (в строке 36528 декомпилированного кода используется Mathf.Abs)
-            int beam1Id = -(beam.HierarchyNumber + 1000);
-            int beam2Id = -(beam.HierarchyNumber + 2000);
+            // Используем БОЛЬШИЕ отрицательные ID чтобы они точно не совпали с ID игроков
+            // ID игроков обычно 0-3, используем -10000 и меньше
+            int beam1Id = -10000 - player.Id * 100 - 1;
+            int beam2Id = -10000 - player.Id * 100 - 2;
 
             DetPhysics.Get().AddBeamBody(new DetPhysics.BeamBody
             {
@@ -118,13 +118,13 @@ namespace BoplSynergyMod.Patches
             var beamIndex = Traverse.Create(beam).Field("beamIndex").GetValue<int>();
             if (beamIndex < 0) return; // Луч ещё заряжается
 
-            Vec2 aimVector = player.AimVector();
-            Vec2 firePos = body.position + aimVector * (Fix)2.0;
+            var staffDir = Traverse.Create(beam).Field("staffDir").GetValue<Vec2>();
+            Vec2 firePos = body.position + staffDir * (Fix)2.0;
 
             Fix maxDistance = (Fix)100L;
             // Добавляем "wall" для попадания в острова
             LayerMask collisionMask = LayerMask.GetMask("Default", "item", "wall");
-            RaycastInformation hit = DetPhysics.Get().RaycastToClosest(firePos, aimVector, maxDistance, collisionMask);
+            RaycastInformation hit = DetPhysics.Get().RaycastToClosest(firePos, staffDir, maxDistance, collisionMask);
 
             if (hit && hit.pp.fixTrans != null)
             {
@@ -144,35 +144,50 @@ namespace BoplSynergyMod.Patches
             var beamIndex = Traverse.Create(beam).Field("beamIndex").GetValue<int>();
             if (beamIndex < 0) return; // Луч ещё заряжается
 
-            Vec2 aimVector = player.AimVector();
-            Vec2 firePos = body.position + aimVector * (Fix)2.0;
+            var staffDir = Traverse.Create(beam).Field("staffDir").GetValue<Vec2>();
+            Vec2 firePos = body.position + staffDir * (Fix)2.0;
 
             Fix maxDistance = (Fix)100L;
-            LayerMask mask = LayerMask.GetMask("Default", "item", "wall");
-            RaycastInformation hit = DetPhysics.Get().RaycastToClosest(firePos, aimVector, maxDistance, mask);
+            LayerMask mask = LayerMask.GetMask("Default", "item", "wall", "Projectile");
+            RaycastInformation hit = DetPhysics.Get().RaycastToClosest(firePos, staffDir, maxDistance, mask);
 
             if (hit && hit.pp.fixTrans != null)
             {
                 var targetBody = hit.pp.fixTrans.GetComponent<BoplBody>();
                 if (targetBody != null)
                 {
-                    // Используем те же значения что и в MagnetGun (строка 19059-19065)
-                    Fix pullStr = (Fix)50L; // базовая сила притягивания
-                    Fix wallPullStr = (Fix)100L; // для стен/островов
+                    // Используем значения из MagnetGun.TryPullItems (строка 19449-19480)
+                    Fix pullStr = (Fix)50L;
+                    Fix projectilePullStr = (Fix)50L;
+                    Fix wallPullStr = (Fix)100L;
 
-                    // Определяем силу в зависимости от типа объекта
                     Fix force = pullStr;
-                    if (hit.pp.fixTrans.gameObject.layer == LayerMask.NameToLayer("wall"))
+                    int layer = hit.pp.fixTrans.gameObject.layer;
+
+                    if (layer == LayerMask.NameToLayer("Projectile"))
+                    {
+                        force = projectilePullStr;
+                    }
+                    else if (layer == LayerMask.NameToLayer("wall"))
                     {
                         force = wallPullStr;
                     }
 
-                    // Применяем силу через physicsCollider напрямую (как в строке 7477)
-                    Vec2 forceVector = -force * aimVector;
-                    var physicsCollider = Traverse.Create(targetBody).Field("physicsCollider").GetValue<IPhysicsCollider>();
-                    if (physicsCollider != null)
+                    // Направление притягивания: от объекта К игроку (отрицательное направление луча)
+                    Vec2 pullDirection = -staffDir;
+
+                    // Применяем силу напрямую через velocity (как в MagnetGun строка 19449)
+                    targetBody.velocity += force * pullDirection * deltaTime;
+                }
+                else
+                {
+                    // Проверяем PlayerBody для игроков
+                    var playerBody = hit.pp.fixTrans.GetComponent<PlayerBody>();
+                    if (playerBody != null)
                     {
-                        physicsCollider.AddForce(forceVector);
+                        Fix playerPullStr = (Fix)50L;
+                        Vec2 pullDirection = -staffDir;
+                        playerBody.externalVelocity += playerPullStr * pullDirection * deltaTime;
                     }
                 }
             }
@@ -184,21 +199,21 @@ namespace BoplSynergyMod.Patches
             var beamIndex = Traverse.Create(beam).Field("beamIndex").GetValue<int>();
             if (beamIndex < 0) return; // Луч ещё заряжается
 
-            Vec2 aimVector = player.AimVector();
-            Vec2 firePos = body.position + aimVector * (Fix)2.0;
+            var staffDir = Traverse.Create(beam).Field("staffDir").GetValue<Vec2>();
+            Vec2 firePos = body.position + staffDir * (Fix)2.0;
 
             Fix maxDistance = (Fix)100L;
             // Добавляем "wall" для попадания в острова
             LayerMask collisionMask = LayerMask.GetMask("Default", "item", "wall");
-            RaycastInformation hit = DetPhysics.Get().RaycastToClosest(firePos, aimVector, maxDistance, collisionMask);
+            RaycastInformation hit = DetPhysics.Get().RaycastToClosest(firePos, staffDir, maxDistance, collisionMask);
 
             if (hit && hit.pp.fixTrans != null)
             {
                 var targetBody = hit.pp.fixTrans.GetComponent<BoplBody>();
                 if (targetBody != null)
                 {
-                    // Уменьшаем медленнее: -0.1 вместо +0.2
-                    Fix shrinkPerSecond = (Fix)(-0.1);
+                    // Реверс увеличения: уменьшаем с той же скоростью но в обратную сторону
+                    Fix shrinkPerSecond = (Fix)(-0.2); // Отрицательное значение для уменьшения
                     Fix shrinkThisFrame = shrinkPerSecond * deltaTime;
 
                     // Применяем изменение с минимальным размером 0.1
@@ -206,6 +221,10 @@ namespace BoplSynergyMod.Patches
                     if (newScale > (Fix)0.1)
                     {
                         targetBody.Scale = newScale;
+                    }
+                    else
+                    {
+                        targetBody.Scale = (Fix)0.1; // Не даём стать меньше минимума
                     }
                 }
             }
