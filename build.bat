@@ -83,13 +83,24 @@ if not exist "output" mkdir output
 
 echo.
 echo Copying DLL to output folder...
-if not exist "bin\Release\net471\BoplSynergyMod.dll" (
-    echo [ERROR] Source DLL not found: bin\Release\net471\BoplSynergyMod.dll
+
+:: Проверяем оба возможных пути
+set "DLL_PATH="
+if exist "bin\Release\net471\BoplSynergyMod.dll" (
+    set "DLL_PATH=bin\Release\net471\BoplSynergyMod.dll"
+)
+if exist "obj\Release\net471\BoplSynergyMod.dll" (
+    set "DLL_PATH=obj\Release\net471\BoplSynergyMod.dll"
+)
+
+if not defined DLL_PATH (
+    echo [ERROR] DLL not found in bin or obj folders
     pause
     exit /b 1
 )
 
-copy /y "bin\Release\net471\BoplSynergyMod.dll" "output\BoplSynergyMod.dll"
+echo Found DLL at: !DLL_PATH!
+copy /y "!DLL_PATH!" "output\BoplSynergyMod.dll"
 if errorlevel 1 (
     echo [ERROR] Failed to copy to output folder
     pause
