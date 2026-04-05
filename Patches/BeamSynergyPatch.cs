@@ -29,20 +29,13 @@ namespace BoplSynergyMod.Patches
                 Plugin.Log.LogInfo($"[BeamSynergy] Player: {(player != null ? player.Id.ToString() : "NULL")}");
                 if (player == null) return;
 
-                // Получаем контроллер через SlimeController.GetByPlayerId
-                SlimeController controller = null;
-                var allControllers = UnityEngine.Object.FindObjectsOfType<SlimeController>();
-                Plugin.Log.LogInfo($"[BeamSynergy] Found {allControllers.Length} controllers");
+                // Получаем body из Beam
+                var body = Traverse.Create(__instance).Field("body").GetValue<PlayerBody>();
+                Plugin.Log.LogInfo($"[BeamSynergy] Body: {(body != null ? "OK" : "NULL")}");
+                if (body == null) return;
 
-                foreach (var ctrl in allControllers)
-                {
-                    if (ctrl.GetPlayerId() == player.Id)
-                    {
-                        controller = ctrl;
-                        break;
-                    }
-                }
-
+                // Получаем контроллер из body
+                var controller = body.GetComponent<SlimeController>();
                 Plugin.Log.LogInfo($"[BeamSynergy] Controller: {(controller != null ? "OK" : "NULL")}");
                 if (controller == null) return;
 
