@@ -23,6 +23,10 @@ namespace BoplSynergyMod.Patches
                 if (player == null) return;
 
                 int synergyType = SlimeControllerSynergyPatch.GetActiveSynergy(player.Id);
+                if (synergyType != 0)
+                {
+                    Plugin.Log.LogInfo($"[BeamUpdate] Player {player.Id} has synergy type {synergyType}");
+                }
                 if (synergyType == 0) return;
 
                 var body = Traverse.Create(__instance).Field("body").GetValue<PlayerBody>();
