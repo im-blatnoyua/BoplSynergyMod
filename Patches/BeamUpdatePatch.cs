@@ -107,6 +107,10 @@ namespace BoplSynergyMod.Patches
 
         private static void ApplyGrowBeamEffect(Beam beam, Player player, PlayerBody body, Fix deltaTime)
         {
+            // Проверяем что луч уже активен (не в стадии зарядки)
+            var beamIndex = Traverse.Create(beam).Field("beamIndex").GetValue<int>();
+            if (beamIndex < 0) return; // Луч ещё заряжается
+
             Vec2 aimVector = player.AimVector();
             Vec2 firePos = body.position + aimVector * (Fix)2.0;
 
@@ -123,20 +127,16 @@ namespace BoplSynergyMod.Patches
                     Fix growthPerSecond = (Fix)0.2;
                     Fix growthThisFrame = growthPerSecond * deltaTime;
                     targetBody.Scale += growthThisFrame;
-                    Plugin.Log.LogInfo($"[BeamUpdate] Growing object: {targetBody.gameObject.name}, Scale: {targetBody.Scale}");
                 }
-            }
-
-            if (player.Scale > (Fix)0.3)
-            {
-                Fix shrinkPerSecond = (Fix)0.1;
-                Fix shrinkThisFrame = shrinkPerSecond * deltaTime;
-                player.Scale = Fix.Max(player.Scale - shrinkThisFrame, (Fix)0.3);
             }
         }
 
         private static void ApplyMagnetBeamEffect(Beam beam, Player player, PlayerBody body, Fix deltaTime)
         {
+            // Проверяем что луч уже активен (не в стадии зарядки)
+            var beamIndex = Traverse.Create(beam).Field("beamIndex").GetValue<int>();
+            if (beamIndex < 0) return; // Луч ещё заряжается
+
             Vec2 aimVector = player.AimVector();
             Vec2 firePos = body.position + aimVector * (Fix)2.0;
 
@@ -163,7 +163,6 @@ namespace BoplSynergyMod.Patches
                     if (scaleFactor > Fix.Zero)
                     {
                         targetBody.velocity += force / scaleFactor * deltaTime;
-                        Plugin.Log.LogInfo($"[BeamUpdate] Applying force to {targetBody.gameObject.name}: Scale={targetBody.Scale}, Force={force}, Velocity={targetBody.velocity}");
                     }
                 }
             }
