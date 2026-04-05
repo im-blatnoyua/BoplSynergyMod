@@ -73,12 +73,14 @@ namespace BoplSynergyMod.Patches
             Vec2 direction2 = RotateVector(staffDir, -angle45);
 
             // Используем уникальные отрицательные ID для каждого луча
-            // Отрицательные ID не будут конфликтовать с основным лучом
-            // Используем большие числа чтобы точно не совпасть с другими объектами
             int beam1Id = -(1000000 + player.Id * 1000 + 1);
             int beam2Id = -(1000000 + player.Id * 1000 + 2);
 
-            Plugin.Log.LogInfo($"[TripleBeam] Creating beams: main={beam.HierarchyNumber}, beam1={beam1Id}, beam2={beam2Id}, dir1=({direction1.x},{direction1.y}), dir2=({direction2.x},{direction2.y})");
+            // ВАЖНО: Используем ownerId = -1 (нейтральный) чтобы лучи не убивали никого
+            // Это сделает их безопасными для всех игроков
+            int neutralOwnerId = -1;
+
+            Plugin.Log.LogInfo($"[TripleBeam] Creating neutral beams: beam1={beam1Id}, beam2={beam2Id}, ownerId={neutralOwnerId}");
 
             DetPhysics.Get().AddBeamBody(new DetPhysics.BeamBody
             {
@@ -88,7 +90,7 @@ namespace BoplSynergyMod.Patches
                 colors = playerBeamColor,
                 timePassed = timeSinceBeamStart,
                 id = beam1Id,
-                ownerId = player.Id,
+                ownerId = neutralOwnerId, // Нейтральный владелец
                 ground = currentGround
             });
 
@@ -100,7 +102,7 @@ namespace BoplSynergyMod.Patches
                 colors = playerBeamColor,
                 timePassed = timeSinceBeamStart,
                 id = beam2Id,
-                ownerId = player.Id,
+                ownerId = neutralOwnerId, // Нейтральный владелец
                 ground = currentGround
             });
         }
