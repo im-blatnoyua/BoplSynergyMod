@@ -167,7 +167,11 @@ namespace BoplSynergyMod.Patches
         {
             // Проверяем что луч уже активен (не в стадии зарядки)
             var beamIndex = Traverse.Create(beam).Field("beamIndex").GetValue<int>();
-            if (beamIndex < 0) return; // Луч ещё заряжается
+            if (beamIndex < 0)
+            {
+                Plugin.Log.LogInfo($"[Magnet] Beam not active yet (beamIndex={beamIndex})");
+                return;
+            }
 
             var staffDir = Traverse.Create(beam).Field("staffDir").GetValue<Vec2>();
             Vec2 firePos = body.position + staffDir * (Fix)2.0;
@@ -176,8 +180,12 @@ namespace BoplSynergyMod.Patches
             LayerMask mask = LayerMask.GetMask("Default", "item", "wall", "Projectile");
             RaycastInformation hit = DetPhysics.Get().RaycastToClosest(firePos, staffDir, maxDistance, mask);
 
+            Plugin.Log.LogInfo($"[Magnet] Raycast from ({firePos.x},{firePos.y}) dir ({staffDir.x},{staffDir.y}), hit={hit != null}");
+
             if (hit && hit.pp.fixTrans != null)
             {
+                Plugin.Log.LogInfo($"[Magnet] Hit object: {hit.pp.fixTrans.gameObject.name}, layer={hit.pp.fixTrans.gameObject.layer}");
+
                 var targetBody = hit.pp.fixTrans.GetComponent<BoplBody>();
                 if (targetBody != null)
                 {
@@ -207,7 +215,11 @@ namespace BoplSynergyMod.Patches
                     if (physicsCollider != null)
                     {
                         physicsCollider.AddForce(forceVector);
-                        Plugin.Log.LogInfo($"[Magnet] Applied force {forceVector.x},{forceVector.y} to {hit.pp.fixTrans.gameObject.name}");
+                        Plugin.Log.LogInfo($"[Magnet] Applied force ({forceVector.x},{forceVector.y}) to {hit.pp.fixTrans.gameObject.name}");
+                    }
+                    else
+                    {
+                        Plugin.Log.LogWarning($"[Magnet] physicsCollider is null!");
                     }
                 }
                 else
@@ -220,6 +232,10 @@ namespace BoplSynergyMod.Patches
                         Vec2 pullDirection = -staffDir;
                         playerBody.externalVelocity -= playerPullStr * pullDirection;
                         Plugin.Log.LogInfo($"[Magnet] Applied velocity to player");
+                    }
+                    else
+                    {
+                        Plugin.Log.LogWarning($"[Magnet] No BoplBody or PlayerBody found!");
                     }
                 }
             }
