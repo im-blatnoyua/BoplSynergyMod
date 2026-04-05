@@ -1,12 +1,16 @@
 using BoplFixedMath;
 using HarmonyLib;
 using UnityEngine;
+using System.Collections.Generic;
 
 namespace BoplSynergyMod.Patches
 {
     [HarmonyPatch(typeof(Beam), "UpdateSim")]
     public static class BeamUpdatePatch
     {
+        // Отслеживаем для каких лучей уже создали дополнительные лучи
+        private static HashSet<int> processedBeams = new HashSet<int>();
+
         static void Postfix(Beam __instance, Fix SimDeltaTime)
         {
             try
@@ -52,6 +56,14 @@ namespace BoplSynergyMod.Patches
             var beamIndex = Traverse.Create(beam).Field("beamIndex").GetValue<int>();
             if (beamIndex < 0) return;
 
+            // Проверяем что мы ещё не создавали дополнительные лучи для этого луча
+            int beamInstanceId = beam.GetInstanceID();
+            if (processedBeams.Contains(beamInstanceId))
+            {
+                return; // Уже создали лучи для этого экземпляра
+            }
+            processedBeams.Add(beamInstanceId);
+
             var timeSinceBeamStart = Traverse.Create(beam).Field("timeSinceBeamStart").GetValue<Fix>();
             var playerBeamColor = Traverse.Create(beam).Field("playerBeamColor").GetValue<DetPhysics.BeamColors>();
             var beamOffset = Traverse.Create(beam).Field("beamOffset").GetValue<Fix>();
@@ -80,7 +92,7 @@ namespace BoplSynergyMod.Patches
             // Это сделает их безопасными для всех игроков
             int neutralOwnerId = -1;
 
-            Plugin.Log.LogInfo($"[TripleBeam] Creating neutral beams: beam1={beam1Id}, beam2={beam2Id}, ownerId={neutralOwnerId}");
+            Plugin.Log.LogInfo($"[TripleBeam] Creating neutral beams ONCE for beam instance {beamInstanceId}");
 
             DetPhysics.Get().AddBeamBody(new DetPhysics.BeamBody
             {
