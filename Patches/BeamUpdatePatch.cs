@@ -51,7 +51,6 @@ namespace BoplSynergyMod.Patches
             var timeSinceBeamStart = Traverse.Create(beam).Field("timeSinceBeamStart").GetValue<Fix>();
             var playerBeamColor = Traverse.Create(beam).Field("playerBeamColor").GetValue<DetPhysics.BeamColors>();
             var beamOffset = Traverse.Create(beam).Field("beamOffset").GetValue<Fix>();
-            var playerCol = Traverse.Create(beam).Field("playerCol").GetValue<PlayerCollision>();
 
             Vec2 aimVector = player.AimVector();
             Vec2 position = body.position + aimVector * beamOffset;
@@ -62,15 +61,10 @@ namespace BoplSynergyMod.Patches
             Vec2 direction1 = RotateVector(aimVector, angle45);
             Vec2 direction2 = RotateVector(aimVector, -angle45);
 
-            int beam1Id = beam.HierarchyNumber + 1000;
-            int beam2Id = beam.HierarchyNumber + 2000;
-
-            // Игнорируем дополнительные лучи для своего игрока
-            if (playerCol != null)
-            {
-                playerCol.IgnoreBeamId(beam1Id);
-                playerCol.IgnoreBeamId(beam2Id);
-            }
+            // Используем отрицательные ID чтобы они не убивали владельца
+            // (в строке 36528 декомпилированного кода используется Mathf.Abs)
+            int beam1Id = -(beam.HierarchyNumber + 1000);
+            int beam2Id = -(beam.HierarchyNumber + 2000);
 
             DetPhysics.Get().AddBeamBody(new DetPhysics.BeamBody
             {
@@ -149,20 +143,23 @@ namespace BoplSynergyMod.Patches
                 var targetBody = hit.pp.fixTrans.GetComponent<BoplBody>();
                 if (targetBody != null)
                 {
-                    // Увеличиваем силу в 10 раз
-                    Fix beamPushForce = (Fix)500L;
-                    Fix scaleMultiplier = Fix.Min(player.Scale, (Fix)40L);
+                    // Используем те же значения что и в MagnetGun (строка 19059-19065)
+                    Fix pullStr = (Fix)50L; // базовая сила притягивания
+                    Fix wallPullStr = (Fix)100L; // для стен/островов
 
-                    Vec2 pushDirection = aimVector;
-
-                    // Для островов (отрицательный Scale) сила будет притягивать
-                    Fix massSign = (Fix)Fix.Sign2(targetBody.Scale);
-                    Vec2 force = massSign * pushDirection * beamPushForce * scaleMultiplier;
-
-                    Fix scaleFactor = Fix.Sqrt(Fix.Abs(targetBody.Scale));
-                    if (scaleFactor > Fix.Zero)
+                    // Определяем силу в зависимости от типа объекта
+                    Fix force = pullStr;
+                    if (hit.pp.fixTrans.gameObject.layer == LayerMask.NameToLayer("wall"))
                     {
-                        targetBody.velocity += force / scaleFactor * deltaTime;
+                        force = wallPullStr;
+                    }
+
+                    // Применяем силу через physicsCollider напрямую (как в строке 7477)
+                    Vec2 forceVector = -force * aimVector;
+                    var physicsCollider = Traverse.Create(targetBody).Field("physicsCollider").GetValue<IPhysicsCollider>();
+                    if (physicsCollider != null)
+                    {
+                        physicsCollider.AddForce(forceVector);
                     }
                 }
             }
