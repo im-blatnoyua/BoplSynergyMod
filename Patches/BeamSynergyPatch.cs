@@ -6,71 +6,46 @@ using System.Collections.Generic;
 namespace BoplSynergyMod.Patches
 {
     /// <summary>
-    /// Патч на Beam.OnEnterAbility - добавляет синергии к лучу
+    /// Патч на Beam.UpdateSim - проверяет синергии каждый кадр пока луч активен
     /// </summary>
-    [HarmonyPatch(typeof(Beam), "OnEnterAbility")]
+    [HarmonyPatch(typeof(Beam), "UpdateSim")]
     public static class BeamSynergyPatch
     {
-        static void Postfix(Beam __instance)
+        private static Dictionary<int, bool> synergyActivated = new Dictionary<int, bool>();
+
+        static void Postfix(Beam __instance, Fix SimDeltaTime)
         {
             try
             {
-                Plugin.Log.LogInfo("[BeamSynergy] Beam activated!");
-
                 // Получаем игрока
                 var ability = Traverse.Create(__instance).Field("ability").GetValue<Ability>();
-                Plugin.Log.LogInfo($"[BeamSynergy] Ability: {(ability != null ? "OK" : "NULL")}");
                 if (ability == null) return;
 
                 var playerInfo = ability.GetPlayerInfo();
-                Plugin.Log.LogInfo($"[BeamSynergy] PlayerInfo playerId: {playerInfo.playerId}");
-
                 var player = PlayerHandler.Get().GetPlayer(playerInfo.playerId);
-                Plugin.Log.LogInfo($"[BeamSynergy] Player: {(player != null ? player.Id.ToString() : "NULL")}");
                 if (player == null) return;
+
+                // Проверяем синергию только один раз за активацию луча
+                if (synergyActivated.ContainsKey(player.Id) && synergyActivated[player.Id])
+                    return;
 
                 // Получаем body из Beam
                 var body = Traverse.Create(__instance).Field("body").GetValue<PlayerBody>();
-                Plugin.Log.LogInfo($"[BeamSynergy] Body: {(body != null ? "OK" : "NULL")}");
                 if (body == null) return;
 
-                // Пробуем получить контроллер разными способами
-                SlimeController controller = null;
-
-                // Способ 1: из body.gameObject
-                controller = body.gameObject.GetComponent<SlimeController>();
-                Plugin.Log.LogInfo($"[BeamSynergy] Controller from body.gameObject: {(controller != null ? "OK" : "NULL")}");
-
-                // Способ 2: из body.transform.parent
+                // Пробуем получить контроллер
+                SlimeController controller = body.gameObject.GetComponent<SlimeController>();
                 if (controller == null && body.transform.parent != null)
-                {
                     controller = body.transform.parent.GetComponent<SlimeController>();
-                    Plugin.Log.LogInfo($"[BeamSynergy] Controller from parent: {(controller != null ? "OK" : "NULL")}");
-                }
 
-                // Способ 3: из playerInfo
-                if (controller == null)
-                {
-                    var slimeController = Traverse.Create(playerInfo).Field("slimeController").GetValue<SlimeController>();
-                    controller = slimeController;
-                    Plugin.Log.LogInfo($"[BeamSynergy] Controller from playerInfo: {(controller != null ? "OK" : "NULL")}");
-                }
+                if (controller == null) return;
 
-                if (controller == null)
-                {
-                    Plugin.Log.LogWarning("[BeamSynergy] Could not find controller!");
-                    return;
-                }
-
-                Plugin.Log.LogInfo($"[BeamSynergy] Player {player.Id} abilities count: {controller.abilities.Count}");
+                Plugin.Log.LogInfo($"[BeamSynergy] Checking synergies for player {player.Id}");
 
                 // Проверяем какие ещё способности нажаты
                 for (int i = 0; i < controller.abilities.Count; i++)
                 {
-                    bool isPressed = player.AbilityButtonIsDown(i);
-                    Plugin.Log.LogInfo($"[BeamSynergy] Ability {i} pressed: {isPressed}");
-
-                    if (isPressed)
+                    if (player.AbilityButtonIsDown(i))
                     {
                         var otherAbility = controller.abilities[i];
                         string abilityName = otherAbility.gameObject.name.ToLower();
@@ -82,16 +57,22 @@ namespace BoplSynergyMod.Patches
                         {
                             Plugin.Log.LogInfo("[BeamSynergy] DUPLICATE SYNERGY!");
                             ApplyDuplicateSynergy(__instance, controller, player);
+                            synergyActivated[player.Id] = true;
+                            return;
                         }
                         else if (abilityName.Contains("grow") || abilityName.Contains("scale"))
                         {
                             Plugin.Log.LogInfo("[BeamSynergy] GROW SYNERGY!");
                             ApplyGrowSynergy(__instance, controller, player, otherAbility);
+                            synergyActivated[player.Id] = true;
+                            return;
                         }
                         else if (abilityName.Contains("magnet"))
                         {
                             Plugin.Log.LogInfo("[BeamSynergy] MAGNET SYNERGY!");
                             ApplyMagnetSynergy(__instance, controller, player);
+                            synergyActivated[player.Id] = true;
+                            return;
                         }
                     }
                 }
@@ -99,8 +80,24 @@ namespace BoplSynergyMod.Patches
             catch (System.Exception ex)
             {
                 Plugin.Log.LogError($"[BeamSynergy] Error: {ex.Message}");
-                Plugin.Log.LogError($"[BeamSynergy] Stack: {ex.StackTrace}");
             }
+        }
+
+        // Сбрасываем флаг когда луч заканчивается
+        [HarmonyPatch(typeof(Beam), "ExitAbility", new System.Type[] { typeof(AbilityExitInfo) })]
+        [HarmonyPostfix]
+        static void OnBeamExit(Beam __instance)
+        {
+            try
+            {
+                var ability = Traverse.Create(__instance).Field("ability").GetValue<Ability>();
+                if (ability != null)
+                {
+                    var playerInfo = ability.GetPlayerInfo();
+                    synergyActivated[playerInfo.playerId] = false;
+                }
+            }
+            catch { }
         }
 
         private static void ApplyDuplicateSynergy(Beam beam, SlimeController controller, Player player)
