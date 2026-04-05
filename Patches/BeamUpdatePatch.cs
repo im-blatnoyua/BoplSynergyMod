@@ -51,6 +51,7 @@ namespace BoplSynergyMod.Patches
             var timeSinceBeamStart = Traverse.Create(beam).Field("timeSinceBeamStart").GetValue<Fix>();
             var playerBeamColor = Traverse.Create(beam).Field("playerBeamColor").GetValue<DetPhysics.BeamColors>();
             var beamOffset = Traverse.Create(beam).Field("beamOffset").GetValue<Fix>();
+            var playerCol = Traverse.Create(beam).Field("playerCol").GetValue<PlayerCollision>();
 
             Vec2 aimVector = player.AimVector();
             Vec2 position = body.position + aimVector * beamOffset;
@@ -61,6 +62,16 @@ namespace BoplSynergyMod.Patches
             Vec2 direction1 = RotateVector(aimVector, angle45);
             Vec2 direction2 = RotateVector(aimVector, -angle45);
 
+            int beam1Id = beam.HierarchyNumber + 1000;
+            int beam2Id = beam.HierarchyNumber + 2000;
+
+            // Игнорируем дополнительные лучи для своего игрока
+            if (playerCol != null)
+            {
+                playerCol.IgnoreBeamId(beam1Id);
+                playerCol.IgnoreBeamId(beam2Id);
+            }
+
             DetPhysics.Get().AddBeamBody(new DetPhysics.BeamBody
             {
                 position = position,
@@ -68,7 +79,7 @@ namespace BoplSynergyMod.Patches
                 scale = scale,
                 colors = playerBeamColor,
                 timePassed = timeSinceBeamStart,
-                id = beam.HierarchyNumber + 1000,
+                id = beam1Id,
                 ownerId = player.Id
             });
 
@@ -79,7 +90,7 @@ namespace BoplSynergyMod.Patches
                 scale = scale,
                 colors = playerBeamColor,
                 timePassed = timeSinceBeamStart,
-                id = beam.HierarchyNumber + 2000,
+                id = beam2Id,
                 ownerId = player.Id
             });
         }
@@ -100,7 +111,8 @@ namespace BoplSynergyMod.Patches
             Vec2 firePos = body.position + aimVector * (Fix)2.0;
 
             Fix maxDistance = (Fix)100L;
-            LayerMask collisionMask = LayerMask.GetMask("Default", "item");
+            // Добавляем "wall" для попадания в острова
+            LayerMask collisionMask = LayerMask.GetMask("Default", "item", "wall");
             RaycastInformation hit = DetPhysics.Get().RaycastToClosest(firePos, aimVector, maxDistance, collisionMask);
 
             if (hit && hit.pp.fixTrans != null)
@@ -111,6 +123,7 @@ namespace BoplSynergyMod.Patches
                     Fix growthPerSecond = (Fix)0.2;
                     Fix growthThisFrame = growthPerSecond * deltaTime;
                     targetBody.Scale += growthThisFrame;
+                    Plugin.Log.LogInfo($"[BeamUpdate] Growing object: {targetBody.gameObject.name}, Scale: {targetBody.Scale}");
                 }
             }
 
@@ -136,11 +149,13 @@ namespace BoplSynergyMod.Patches
                 var targetBody = hit.pp.fixTrans.GetComponent<BoplBody>();
                 if (targetBody != null)
                 {
-                    Fix beamPushForce = (Fix)50L;
+                    // Увеличиваем силу в 10 раз
+                    Fix beamPushForce = (Fix)500L;
                     Fix scaleMultiplier = Fix.Min(player.Scale, (Fix)40L);
 
                     Vec2 pushDirection = aimVector;
 
+                    // Для островов (отрицательный Scale) сила будет притягивать
                     Fix massSign = (Fix)Fix.Sign2(targetBody.Scale);
                     Vec2 force = massSign * pushDirection * beamPushForce * scaleMultiplier;
 
@@ -148,6 +163,7 @@ namespace BoplSynergyMod.Patches
                     if (scaleFactor > Fix.Zero)
                     {
                         targetBody.velocity += force / scaleFactor * deltaTime;
+                        Plugin.Log.LogInfo($"[BeamUpdate] Applying force to {targetBody.gameObject.name}: Scale={targetBody.Scale}, Force={force}, Velocity={targetBody.velocity}");
                     }
                 }
             }
