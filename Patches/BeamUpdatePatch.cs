@@ -72,10 +72,9 @@ namespace BoplSynergyMod.Patches
             Vec2 direction1 = RotateVector(staffDir, angle45);
             Vec2 direction2 = RotateVector(staffDir, -angle45);
 
-            // Используем БОЛЬШИЕ отрицательные ID чтобы они точно не совпали с ID игроков
-            // ID игроков обычно 0-3, используем -10000 и меньше
-            int beam1Id = -10000 - player.Id * 100 - 1;
-            int beam2Id = -10000 - player.Id * 100 - 2;
+            // Используем тот же beamId что и основной луч
+            // Это заставит игру игнорировать эти лучи для владельца (строка 36528 декомпилированного кода)
+            int mainBeamId = beam.HierarchyNumber;
 
             DetPhysics.Get().AddBeamBody(new DetPhysics.BeamBody
             {
@@ -84,7 +83,7 @@ namespace BoplSynergyMod.Patches
                 scale = scale,
                 colors = playerBeamColor,
                 timePassed = timeSinceBeamStart,
-                id = beam1Id,
+                id = mainBeamId, // Тот же ID что и основной луч
                 ownerId = player.Id,
                 ground = currentGround
             });
@@ -96,7 +95,7 @@ namespace BoplSynergyMod.Patches
                 scale = scale,
                 colors = playerBeamColor,
                 timePassed = timeSinceBeamStart,
-                id = beam2Id,
+                id = mainBeamId, // Тот же ID что и основной луч
                 ownerId = player.Id,
                 ground = currentGround
             });
