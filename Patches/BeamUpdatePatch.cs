@@ -84,6 +84,14 @@ namespace BoplSynergyMod.Patches
             Vec2 direction1 = RotateVector(staffDir, angle45);
             Vec2 direction2 = RotateVector(staffDir, -angle45);
 
+            // Смещаем лучи в стороны чтобы они не пересекались в центре
+            // Вычисляем перпендикуляр к направлению луча
+            Vec2 perpendicular = new Vec2(-staffDir.y, staffDir.x);
+            Fix sideOffset = (Fix)3.0; // Смещение в стороны
+
+            Vec2 position1 = position + perpendicular * sideOffset;
+            Vec2 position2 = position - perpendicular * sideOffset;
+
             // Используем уникальные отрицательные ID для каждого луча
             int beam1Id = -(1000000 + player.Id * 1000 + 1);
             int beam2Id = -(1000000 + player.Id * 1000 + 2);
@@ -92,29 +100,29 @@ namespace BoplSynergyMod.Patches
             // Это сделает их безопасными для всех игроков
             int neutralOwnerId = -1;
 
-            Plugin.Log.LogInfo($"[TripleBeam] Creating neutral beams ONCE for beam instance {beamInstanceId}");
+            Plugin.Log.LogInfo($"[TripleBeam] Creating offset beams: pos1=({position1.x},{position1.y}), pos2=({position2.x},{position2.y})");
 
             DetPhysics.Get().AddBeamBody(new DetPhysics.BeamBody
             {
-                position = position,
+                position = position1, // Смещённая позиция
                 direction = direction1,
                 scale = scale,
                 colors = playerBeamColor,
                 timePassed = timeSinceBeamStart,
                 id = beam1Id,
-                ownerId = neutralOwnerId, // Нейтральный владелец
+                ownerId = neutralOwnerId,
                 ground = currentGround
             });
 
             DetPhysics.Get().AddBeamBody(new DetPhysics.BeamBody
             {
-                position = position,
+                position = position2, // Смещённая позиция
                 direction = direction2,
                 scale = scale,
                 colors = playerBeamColor,
                 timePassed = timeSinceBeamStart,
                 id = beam2Id,
-                ownerId = neutralOwnerId, // Нейтральный владелец
+                ownerId = neutralOwnerId,
                 ground = currentGround
             });
         }
