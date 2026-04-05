@@ -34,10 +34,33 @@ namespace BoplSynergyMod.Patches
                 Plugin.Log.LogInfo($"[BeamSynergy] Body: {(body != null ? "OK" : "NULL")}");
                 if (body == null) return;
 
-                // Получаем контроллер из body
-                var controller = body.GetComponent<SlimeController>();
-                Plugin.Log.LogInfo($"[BeamSynergy] Controller: {(controller != null ? "OK" : "NULL")}");
-                if (controller == null) return;
+                // Пробуем получить контроллер разными способами
+                SlimeController controller = null;
+
+                // Способ 1: из body.gameObject
+                controller = body.gameObject.GetComponent<SlimeController>();
+                Plugin.Log.LogInfo($"[BeamSynergy] Controller from body.gameObject: {(controller != null ? "OK" : "NULL")}");
+
+                // Способ 2: из body.transform.parent
+                if (controller == null && body.transform.parent != null)
+                {
+                    controller = body.transform.parent.GetComponent<SlimeController>();
+                    Plugin.Log.LogInfo($"[BeamSynergy] Controller from parent: {(controller != null ? "OK" : "NULL")}");
+                }
+
+                // Способ 3: из playerInfo
+                if (controller == null)
+                {
+                    var slimeController = Traverse.Create(playerInfo).Field("slimeController").GetValue<SlimeController>();
+                    controller = slimeController;
+                    Plugin.Log.LogInfo($"[BeamSynergy] Controller from playerInfo: {(controller != null ? "OK" : "NULL")}");
+                }
+
+                if (controller == null)
+                {
+                    Plugin.Log.LogWarning("[BeamSynergy] Could not find controller!");
+                    return;
+                }
 
                 Plugin.Log.LogInfo($"[BeamSynergy] Player {player.Id} abilities count: {controller.abilities.Count}");
 
