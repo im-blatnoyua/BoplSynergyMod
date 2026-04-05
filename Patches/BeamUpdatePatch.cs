@@ -72,9 +72,13 @@ namespace BoplSynergyMod.Patches
             Vec2 direction1 = RotateVector(staffDir, angle45);
             Vec2 direction2 = RotateVector(staffDir, -angle45);
 
-            // Используем тот же beamId что и основной луч
-            // Это заставит игру игнорировать эти лучи для владельца (строка 36528 декомпилированного кода)
-            int mainBeamId = beam.HierarchyNumber;
+            // Используем уникальные отрицательные ID для каждого луча
+            // Отрицательные ID не будут конфликтовать с основным лучом
+            // Используем большие числа чтобы точно не совпасть с другими объектами
+            int beam1Id = -(1000000 + player.Id * 1000 + 1);
+            int beam2Id = -(1000000 + player.Id * 1000 + 2);
+
+            Plugin.Log.LogInfo($"[TripleBeam] Creating beams: main={beam.HierarchyNumber}, beam1={beam1Id}, beam2={beam2Id}, dir1=({direction1.x},{direction1.y}), dir2=({direction2.x},{direction2.y})");
 
             DetPhysics.Get().AddBeamBody(new DetPhysics.BeamBody
             {
@@ -83,7 +87,7 @@ namespace BoplSynergyMod.Patches
                 scale = scale,
                 colors = playerBeamColor,
                 timePassed = timeSinceBeamStart,
-                id = mainBeamId, // Тот же ID что и основной луч
+                id = beam1Id,
                 ownerId = player.Id,
                 ground = currentGround
             });
@@ -95,7 +99,7 @@ namespace BoplSynergyMod.Patches
                 scale = scale,
                 colors = playerBeamColor,
                 timePassed = timeSinceBeamStart,
-                id = mainBeamId, // Тот же ID что и основной луч
+                id = beam2Id,
                 ownerId = player.Id,
                 ground = currentGround
             });
