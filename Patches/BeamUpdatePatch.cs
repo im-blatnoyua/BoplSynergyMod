@@ -200,19 +200,26 @@ namespace BoplSynergyMod.Patches
 
                     // Направление притягивания: от объекта К игроку (отрицательное направление луча)
                     Vec2 pullDirection = -staffDir;
+                    Vec2 forceVector = force * pullDirection;
 
-                    // Применяем силу напрямую через velocity (как в MagnetGun строка 19449)
-                    targetBody.velocity += force * pullDirection * deltaTime;
+                    // Применяем силу через physicsCollider напрямую (обходим ForceMode2D)
+                    var physicsCollider = Traverse.Create(targetBody).Field("physicsCollider").GetValue<IPhysicsCollider>();
+                    if (physicsCollider != null)
+                    {
+                        physicsCollider.AddForce(forceVector);
+                        Plugin.Log.LogInfo($"[Magnet] Applied force {forceVector.x},{forceVector.y} to {hit.pp.fixTrans.gameObject.name}");
+                    }
                 }
                 else
                 {
-                    // Проверяем PlayerBody для игроков
+                    // Проверяем PlayerBody для игроков (строка 19484-19495)
                     var playerBody = hit.pp.fixTrans.GetComponent<PlayerBody>();
                     if (playerBody != null)
                     {
                         Fix playerPullStr = (Fix)50L;
                         Vec2 pullDirection = -staffDir;
-                        playerBody.externalVelocity += playerPullStr * pullDirection * deltaTime;
+                        playerBody.externalVelocity -= playerPullStr * pullDirection;
+                        Plugin.Log.LogInfo($"[Magnet] Applied velocity to player");
                     }
                 }
             }
