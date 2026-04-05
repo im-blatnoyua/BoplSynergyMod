@@ -16,12 +16,20 @@ namespace BoplSynergyMod.Patches
             try
             {
                 bool isInAbility = Traverse.Create(__instance).Field("isInAbility").GetValue<bool>();
-                if (isInAbility) return true;
 
                 Player player = PlayerHandler.Get().GetPlayer(__instance.playerNumber);
                 if (player == null) return true;
 
                 int playerId = player.Id;
+
+                // Очищаем activeBeamSynergy только когда игрок НЕ в способности
+                if (!isInAbility && activeBeamSynergy.ContainsKey(playerId))
+                {
+                    activeBeamSynergy.Remove(playerId);
+                }
+
+                // Если уже в способности, не обрабатываем новые синергии
+                if (isInAbility) return true;
 
                 if (!synergyActiveThisFrame.ContainsKey(playerId))
                     synergyActiveThisFrame[playerId] = false;
@@ -84,17 +92,9 @@ namespace BoplSynergyMod.Patches
                 }
 
                 // Сбрасываем флаг только если кнопки не нажаты
-                // НЕ удаляем activeBeamSynergy - он должен оставаться пока луч активен
                 if (pressedButtons.Count < 2)
                 {
                     synergyActiveThisFrame[playerId] = false;
-                }
-
-                // Очищаем activeBeamSynergy только когда игрок НЕ в способности
-                // (луч закончился)
-                if (!isInAbility && activeBeamSynergy.ContainsKey(playerId))
-                {
-                    activeBeamSynergy.Remove(playerId);
                 }
 
                 return true;
