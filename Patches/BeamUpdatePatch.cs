@@ -36,6 +36,10 @@ namespace BoplSynergyMod.Patches
                 {
                     ApplyMagnetBeamEffect(__instance, player, body, SimDeltaTime);
                 }
+                else if (synergyType == 4)
+                {
+                    ApplyShrinkBeamEffect(__instance, player, body, SimDeltaTime);
+                }
             }
             catch (System.Exception ex)
             {
@@ -160,6 +164,38 @@ namespace BoplSynergyMod.Patches
                     if (physicsCollider != null)
                     {
                         physicsCollider.AddForce(forceVector);
+                    }
+                }
+            }
+        }
+
+        private static void ApplyShrinkBeamEffect(Beam beam, Player player, PlayerBody body, Fix deltaTime)
+        {
+            // Проверяем что луч уже активен (не в стадии зарядки)
+            var beamIndex = Traverse.Create(beam).Field("beamIndex").GetValue<int>();
+            if (beamIndex < 0) return; // Луч ещё заряжается
+
+            Vec2 aimVector = player.AimVector();
+            Vec2 firePos = body.position + aimVector * (Fix)2.0;
+
+            Fix maxDistance = (Fix)100L;
+            // Добавляем "wall" для попадания в острова
+            LayerMask collisionMask = LayerMask.GetMask("Default", "item", "wall");
+            RaycastInformation hit = DetPhysics.Get().RaycastToClosest(firePos, aimVector, maxDistance, collisionMask);
+
+            if (hit && hit.pp.fixTrans != null)
+            {
+                var targetBody = hit.pp.fixTrans.GetComponent<BoplBody>();
+                if (targetBody != null)
+                {
+                    // Уменьшаем медленнее чем увеличиваем: 0.1 вместо 0.2
+                    Fix shrinkPerSecond = (Fix)0.1;
+                    Fix shrinkThisFrame = shrinkPerSecond * deltaTime;
+
+                    // Минимальный размер 0.1 чтобы не исчезло
+                    if (targetBody.Scale > (Fix)0.1)
+                    {
+                        targetBody.Scale = Fix.Max(targetBody.Scale - shrinkThisFrame, (Fix)0.1);
                     }
                 }
             }

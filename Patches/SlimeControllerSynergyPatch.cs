@@ -56,7 +56,7 @@ namespace BoplSynergyMod.Patches
                         return false;
                     }
                     else if (CheckSynergy(ability1, ability2, "beam", "grow") ||
-                             CheckSynergy(ability1, ability2, "beam", "scale"))
+                             CheckSynergy(ability1, ability2, "beam", "shootscale"))
                     {
                         Plugin.Log.LogInfo("[Synergy] BEAM + GROW activated!");
                         ApplyBeamGrowSynergy(__instance, player, button1, button2);
@@ -71,6 +71,14 @@ namespace BoplSynergyMod.Patches
                         ApplyBeamMagnetSynergy(__instance, player, button1, button2);
                         synergyActiveThisFrame[playerId] = true;
                         activeBeamSynergy[playerId] = 3;
+                        return false;
+                    }
+                    else if (CheckSynergy(ability1, ability2, "beam", "scalechanger"))
+                    {
+                        Plugin.Log.LogInfo("[Synergy] BEAM + SHRINK activated!");
+                        ApplyBeamShrinkSynergy(__instance, player, button1, button2);
+                        synergyActiveThisFrame[playerId] = true;
+                        activeBeamSynergy[playerId] = 4;
                         return false;
                     }
                 }
@@ -153,6 +161,19 @@ namespace BoplSynergyMod.Patches
             SetCooldown(controller, button2);
 
             Plugin.Log.LogInfo("[Synergy] Applied Beam+Magnet: will push/pull objects");
+        }
+
+        private static void ApplyBeamShrinkSynergy(SlimeController controller, Player player, int button1, int button2)
+        {
+            int beamIndex = FindAbilityIndex(controller, "beam");
+            if (beamIndex == -1) return;
+
+            Traverse.Create(controller).Method("EnterAbility", beamIndex, false).GetValue();
+
+            SetCooldown(controller, button1);
+            SetCooldown(controller, button2);
+
+            Plugin.Log.LogInfo("[Synergy] Applied Beam+Shrink: will shrink objects");
         }
 
         private static void SetCooldown(SlimeController controller, int abilityIndex)
