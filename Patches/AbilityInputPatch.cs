@@ -26,18 +26,14 @@ namespace BoplSynergyMod.Patches
                 Synergies.SynergyTracker.SetButtonState(playerId, i, isPressed);
             }
 
-            // Проверяем синергии
-            if (TryActivateSynergy(__instance, player))
-            {
-                // Синергия активирована, блокируем стандартное поведение
-                return false;
-            }
+            // Проверяем синергии (но НЕ блокируем стандартное поведение)
+            TryActivateSynergy(__instance, player);
 
-            // Продолжаем стандартное поведение
+            // Всегда продолжаем стандартное поведение
             return true;
         }
 
-        private static bool TryActivateSynergy(SlimeController controller, Player player)
+        private static void TryActivateSynergy(SlimeController controller, Player player)
         {
             int playerId = player.Id;
             var abilities = controller.abilities;
@@ -56,13 +52,11 @@ namespace BoplSynergyMod.Patches
                         {
                             Plugin.Log.LogInfo($"[Synergy] Player {playerId} activated synergy: {synergyType}");
                             ActivateSynergy(controller, player, i, j, synergyType.Value);
-                            return true;
+                            return;
                         }
                     }
                 }
             }
-
-            return false;
         }
 
         private static Synergies.SynergyType? GetSynergyType(AbilityMonoBehaviour ability1, AbilityMonoBehaviour ability2)

@@ -6,7 +6,7 @@ namespace BoplSynergyMod.Synergies
 {
     /// <summary>
     /// Синергия: Луч + Перемещение объектов
-    /// Луч притягивает объекты к игроку
+    /// Притягивает объекты к игроку
     /// </summary>
     public static class BeamTelekinesisSynergy
     {
@@ -14,11 +14,10 @@ namespace BoplSynergyMod.Synergies
         {
             Plugin.Log.LogInfo("[BeamTelekinesis] Activating synergy...");
 
-            // Получаем направление и позицию
             Vec2 aimVector = player.AimVector();
             Vec2 firePos = controller.body.position + aimVector * (Fix)2.0;
 
-            // Делаем raycast для поиска объектов
+            // Raycast для поиска объектов
             Fix maxDistance = (Fix)100L;
             LayerMask collisionMask = LayerMask.GetMask("Default", "item");
 
@@ -26,32 +25,19 @@ namespace BoplSynergyMod.Synergies
 
             if (hit && hit.pp.fixTrans != null)
             {
-                Plugin.Log.LogInfo($"[BeamTelekinesis] Hit object: {hit.pp.fixTrans.gameObject.name}");
+                Plugin.Log.LogInfo($"[BeamTelekinesis] Hit: {hit.pp.fixTrans.gameObject.name}");
 
-                // Получаем BoplBody объекта
                 var targetBody = hit.pp.fixTrans.GetComponent<BoplBody>();
                 if (targetBody != null)
                 {
-                    // Вычисляем направление притягивания (от объекта к игроку)
+                    // Притягиваем к игроку
                     Vec2 pullDirection = Vec2.NormalizedSafe(controller.body.position - targetBody.position);
-
-                    // Применяем силу притягивания
-                    Fix pullStrength = (Fix)10.0; // Увеличенная сила притягивания
+                    Fix pullStrength = (Fix)15.0;
                     targetBody.velocity += pullDirection * pullStrength;
 
-                    Plugin.Log.LogInfo($"[BeamTelekinesis] Pulling object with force {pullStrength}");
-
-                    // Визуальный эффект
+                    Plugin.Log.LogInfo("[BeamTelekinesis] Pulling object!");
                     AudioManager.Get()?.Play("fireRaygun");
                 }
-                else
-                {
-                    Plugin.Log.LogInfo("[BeamTelekinesis] Target has no BoplBody");
-                }
-            }
-            else
-            {
-                Plugin.Log.LogInfo("[BeamTelekinesis] No target hit");
             }
         }
     }
