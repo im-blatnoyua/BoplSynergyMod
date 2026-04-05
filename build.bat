@@ -80,6 +80,15 @@ if errorlevel 1 (
 :: 5. Copy to local output folder
 cd /d "%~dp0"
 if not exist "output" mkdir output
+
+echo.
+echo Copying DLL to output folder...
+if not exist "bin\Release\net471\BoplSynergyMod.dll" (
+    echo [ERROR] Source DLL not found: bin\Release\net471\BoplSynergyMod.dll
+    pause
+    exit /b 1
+)
+
 copy /y "bin\Release\net471\BoplSynergyMod.dll" "output\BoplSynergyMod.dll"
 if errorlevel 1 (
     echo [ERROR] Failed to copy to output folder
@@ -87,10 +96,17 @@ if errorlevel 1 (
     exit /b 1
 )
 
+if not exist "output\BoplSynergyMod.dll" (
+    echo [ERROR] DLL not found in output folder after copy
+    pause
+    exit /b 1
+)
+
+echo [OK] DLL copied successfully
 echo.
-echo [OK] Build complete!
-echo.
-echo DLL copied to: %~dp0output\BoplSynergyMod.dll
+echo File location: %~dp0output\BoplSynergyMod.dll
+echo File size:
+dir "output\BoplSynergyMod.dll" | find "BoplSynergyMod.dll"
 echo.
 echo To install:
 if defined GAME_DIR (
