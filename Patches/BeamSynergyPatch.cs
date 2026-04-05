@@ -17,22 +17,21 @@ namespace BoplSynergyMod.Patches
         {
             try
             {
-                // Логируем время луча (только один раз)
-                var timeSinceBeamStart = Traverse.Create(__instance).Field("timeSinceBeamStart").GetValue<Fix>();
-                if (timeSinceBeamStart == Fix.Zero)
-                {
-                    var maxTime = Traverse.Create(__instance).Field("maxTime").GetValue<Fix>();
-                    var maxTimeAir = Traverse.Create(__instance).Field("maxTimeAir").GetValue<Fix>();
-                    Plugin.Log.LogInfo($"[BeamSynergy] Beam maxTime: {maxTime} ({(float)maxTime}s), maxTimeAir: {maxTimeAir} ({(float)maxTimeAir}s)");
-                }
-
                 // Получаем игрока
                 var ability = Traverse.Create(__instance).Field("ability").GetValue<Ability>();
-                if (ability == null) return;
+                if (ability == null)
+                {
+                    Plugin.Log.LogWarning("[BeamSynergy] ability is NULL");
+                    return;
+                }
 
                 var playerInfo = ability.GetPlayerInfo();
                 var player = PlayerHandler.Get().GetPlayer(playerInfo.playerId);
-                if (player == null) return;
+                if (player == null)
+                {
+                    Plugin.Log.LogWarning("[BeamSynergy] player is NULL");
+                    return;
+                }
 
                 // Проверяем синергию только один раз за активацию луча
                 if (synergyActivated.ContainsKey(player.Id) && synergyActivated[player.Id])
@@ -40,22 +39,32 @@ namespace BoplSynergyMod.Patches
 
                 // Получаем body из Beam
                 var body = Traverse.Create(__instance).Field("body").GetValue<PlayerBody>();
-                if (body == null) return;
+                if (body == null)
+                {
+                    Plugin.Log.LogWarning("[BeamSynergy] body is NULL");
+                    return;
+                }
 
                 // Пробуем получить контроллер
                 SlimeController controller = body.gameObject.GetComponent<SlimeController>();
                 if (controller == null && body.transform.parent != null)
                     controller = body.transform.parent.GetComponent<SlimeController>();
 
-                if (controller == null) return;
+                if (controller == null)
+                {
+                    Plugin.Log.LogWarning("[BeamSynergy] controller is NULL");
+                    return;
+                }
 
-                Plugin.Log.LogInfo($"[BeamSynergy] Checking synergies for player {player.Id}");
+                Plugin.Log.LogInfo($"[BeamSynergy] Checking synergies for player {player.Id}, abilities count: {controller.abilities.Count}");
 
                 // Проверяем какие ещё способности нажаты
+                int pressedCount = 0;
                 for (int i = 0; i < controller.abilities.Count; i++)
                 {
                     if (player.AbilityButtonIsDown(i))
                     {
+                        pressedCount++;
                         var otherAbility = controller.abilities[i];
                         string abilityName = otherAbility.gameObject.name.ToLower();
 
@@ -64,31 +73,37 @@ namespace BoplSynergyMod.Patches
                         // Проверяем синергии
                         if (abilityName.Contains("duplicat"))
                         {
-                            Plugin.Log.LogInfo("[BeamSynergy] DUPLICATE SYNERGY!");
+                            Plugin.Log.LogInfo("[BeamSynergy] DUPLICATE SYNERGY ACTIVATED!");
                             ApplyDuplicateSynergy(__instance, controller, player);
                             synergyActivated[player.Id] = true;
                             return;
                         }
                         else if (abilityName.Contains("grow") || abilityName.Contains("scale"))
                         {
-                            Plugin.Log.LogInfo("[BeamSynergy] GROW SYNERGY!");
+                            Plugin.Log.LogInfo("[BeamSynergy] GROW SYNERGY ACTIVATED!");
                             ApplyGrowSynergy(__instance, controller, player, otherAbility);
                             synergyActivated[player.Id] = true;
                             return;
                         }
-                        else if (abilityName.Contains("magnet"))
+                        else if (abilityName.Contains("magnet") || abilityName.Contains("telekin"))
                         {
-                            Plugin.Log.LogInfo("[BeamSynergy] MAGNET SYNERGY!");
+                            Plugin.Log.LogInfo("[BeamSynergy] MAGNET SYNERGY ACTIVATED!");
                             ApplyMagnetSynergy(__instance, controller, player);
                             synergyActivated[player.Id] = true;
                             return;
                         }
                     }
                 }
+
+                if (pressedCount == 0)
+                {
+                    Plugin.Log.LogInfo("[BeamSynergy] No other buttons pressed");
+                }
             }
             catch (System.Exception ex)
             {
                 Plugin.Log.LogError($"[BeamSynergy] Error: {ex.Message}");
+                Plugin.Log.LogError($"[BeamSynergy] Stack: {ex.StackTrace}");
             }
         }
 
@@ -116,7 +131,61 @@ namespace BoplSynergyMod.Patches
             Vec2 recoil = aimVector * (Fix)(-20.0);
             controller.body.selfImposedVelocity += recoil;
 
-            Plugin.Log.LogInfo("[BeamSynergy] Applied recoil!");
+            // Получаем данные основного луча через Traverse
+            var beamIndex = Traverse.Create(beam).Field("beamIndex").GetValue<int>();
+            var timeSinceBeamStart = Traverse.Create(beam).Field("timeSinceBeamStart").GetValue<Fix>();
+            var playerBeamColor = Traverse.Create(beam).Field("playerBeamColor").GetValue<DetPhysics.BeamColors>();
+            var beamOffset = Traverse.Create(beam).Field("beamOffset").GetValue<Fix>();
+
+            if (beamIndex < 0) return; // Луч ещё не активен
+
+            // Создаём два дополнительных луча под углами ±45 градусов
+            Vec2 position = controller.body.position + aimVector * beamOffset;
+            Fix scale = player.Scale;
+
+            // Угол 45 градусов = 0.785 радиан
+            Fix angle45 = (Fix)0.785398;
+
+            // Поворачиваем вектор на +45 градусов
+            Vec2 direction1 = RotateVector(aimVector, angle45);
+            // Поворачиваем вектор на -45 градусов
+            Vec2 direction2 = RotateVector(aimVector, -angle45);
+
+            // Добавляем два дополнительных луча в DetPhysics
+            DetPhysics.Get().AddBeamBody(new DetPhysics.BeamBody
+            {
+                position = position,
+                direction = direction1,
+                scale = scale,
+                colors = playerBeamColor,
+                timePassed = timeSinceBeamStart,
+                id = beam.HierarchyNumber + 1000, // Уникальный ID
+                ownerId = player.Id
+            });
+
+            DetPhysics.Get().AddBeamBody(new DetPhysics.BeamBody
+            {
+                position = position,
+                direction = direction2,
+                scale = scale,
+                colors = playerBeamColor,
+                timePassed = timeSinceBeamStart,
+                id = beam.HierarchyNumber + 2000, // Уникальный ID
+                ownerId = player.Id
+            });
+
+            Plugin.Log.LogInfo("[BeamSynergy] Created 3 beams with recoil!");
+        }
+
+        // Поворот вектора на угол (в радианах)
+        private static Vec2 RotateVector(Vec2 v, Fix angle)
+        {
+            Fix cos = Fix.Cos(angle);
+            Fix sin = Fix.Sin(angle);
+            return new Vec2(
+                v.x * cos - v.y * sin,
+                v.x * sin + v.y * cos
+            );
         }
 
         private static void ApplyGrowSynergy(Beam beam, SlimeController controller, Player player, AbilityMonoBehaviour growAbility)
@@ -159,7 +228,7 @@ namespace BoplSynergyMod.Patches
 
             // Raycast
             Fix maxDistance = (Fix)100L;
-            LayerMask mask = LayerMask.GetMask("Default", "item");
+            LayerMask mask = LayerMask.GetMask("Default", "item", "wall");
             RaycastInformation hit = DetPhysics.Get().RaycastToClosest(firePos, aimVector, maxDistance, mask);
 
             if (hit && hit.pp.fixTrans != null)
@@ -167,17 +236,25 @@ namespace BoplSynergyMod.Patches
                 var targetBody = hit.pp.fixTrans.GetComponent<BoplBody>();
                 if (targetBody != null)
                 {
-                    // Притягиваем
-                    Vec2 direction = controller.body.position - targetBody.position;
-                    Fix distance = Vec2.Magnitude(direction);
+                    // Используем ту же логику что и луч с черной дырой
+                    // Сила притяжения зависит от Scale объекта
+                    Fix beamPushForce = (Fix)50L; // Базовая сила
+                    Fix scaleMultiplier = Fix.Min(player.Scale, (Fix)40L);
 
-                    if (distance > (Fix)0.3)
+                    // Направление от луча к объекту (отталкивание)
+                    Vec2 pushDirection = aimVector;
+
+                    // Применяем силу с учетом массы (как AddForceLessMassInfluence)
+                    // Для островов с отрицательным Scale это будет притяжение!
+                    Fix massSign = (Fix)Fix.Sign2(targetBody.Scale);
+                    Vec2 force = massSign * pushDirection * beamPushForce * scaleMultiplier;
+
+                    // Делим на sqrt(abs(scale)) для уменьшения влияния массы
+                    Fix scaleFactor = Fix.Sqrt(Fix.Abs(targetBody.Scale));
+                    if (scaleFactor > Fix.Zero)
                     {
-                        Vec2 normalized = direction / distance;
-                        Fix force = (Fix)1000L / (distance * distance);
-                        targetBody.velocity += normalized * force * (Fix)0.016;
-
-                        Plugin.Log.LogInfo("[BeamSynergy] Pulling object!");
+                        targetBody.velocity += force / scaleFactor * (Fix)0.016;
+                        Plugin.Log.LogInfo($"[BeamSynergy] Applying force to object! Scale: {targetBody.Scale}, Force: {force}");
                     }
                 }
             }
