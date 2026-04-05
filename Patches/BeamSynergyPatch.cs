@@ -19,15 +19,21 @@ namespace BoplSynergyMod.Patches
 
                 // Получаем игрока
                 var ability = Traverse.Create(__instance).Field("ability").GetValue<Ability>();
+                Plugin.Log.LogInfo($"[BeamSynergy] Ability: {(ability != null ? "OK" : "NULL")}");
                 if (ability == null) return;
 
                 var playerInfo = ability.GetPlayerInfo();
+                Plugin.Log.LogInfo($"[BeamSynergy] PlayerInfo playerId: {playerInfo.playerId}");
+
                 var player = PlayerHandler.Get().GetPlayer(playerInfo.playerId);
+                Plugin.Log.LogInfo($"[BeamSynergy] Player: {(player != null ? player.Id.ToString() : "NULL")}");
                 if (player == null) return;
 
                 // Получаем контроллер через SlimeController.GetByPlayerId
                 SlimeController controller = null;
                 var allControllers = UnityEngine.Object.FindObjectsOfType<SlimeController>();
+                Plugin.Log.LogInfo($"[BeamSynergy] Found {allControllers.Length} controllers");
+
                 foreach (var ctrl in allControllers)
                 {
                     if (ctrl.GetPlayerId() == player.Id)
@@ -37,6 +43,7 @@ namespace BoplSynergyMod.Patches
                     }
                 }
 
+                Plugin.Log.LogInfo($"[BeamSynergy] Controller: {(controller != null ? "OK" : "NULL")}");
                 if (controller == null) return;
 
                 Plugin.Log.LogInfo($"[BeamSynergy] Player {player.Id} abilities count: {controller.abilities.Count}");
@@ -44,7 +51,10 @@ namespace BoplSynergyMod.Patches
                 // Проверяем какие ещё способности нажаты
                 for (int i = 0; i < controller.abilities.Count; i++)
                 {
-                    if (player.AbilityButtonIsDown(i))
+                    bool isPressed = player.AbilityButtonIsDown(i);
+                    Plugin.Log.LogInfo($"[BeamSynergy] Ability {i} pressed: {isPressed}");
+
+                    if (isPressed)
                     {
                         var otherAbility = controller.abilities[i];
                         string abilityName = otherAbility.gameObject.name.ToLower();
