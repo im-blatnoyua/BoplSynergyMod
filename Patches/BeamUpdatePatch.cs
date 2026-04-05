@@ -55,10 +55,17 @@ namespace BoplSynergyMod.Patches
             var timeSinceBeamStart = Traverse.Create(beam).Field("timeSinceBeamStart").GetValue<Fix>();
             var playerBeamColor = Traverse.Create(beam).Field("playerBeamColor").GetValue<DetPhysics.BeamColors>();
             var beamOffset = Traverse.Create(beam).Field("beamOffset").GetValue<Fix>();
+            var currentGround = Traverse.Create(beam).Field("currentGround").GetValue<StickyRoundedRectangle>();
 
             Vec2 aimVector = player.AimVector();
             Vec2 position = body.position + aimVector * beamOffset;
             Fix scale = player.Scale;
+
+            // Проверяем уровень воды (как в строке 627)
+            if (position.y < Constants.WATER_HEIGHT && Constants.leveltype != LevelType.space)
+            {
+                return; // Под водой лучи не работают
+            }
 
             Fix angle45 = (Fix)0.785398;
 
@@ -78,7 +85,8 @@ namespace BoplSynergyMod.Patches
                 colors = playerBeamColor,
                 timePassed = timeSinceBeamStart,
                 id = beam1Id,
-                ownerId = player.Id
+                ownerId = player.Id,
+                ground = currentGround
             });
 
             DetPhysics.Get().AddBeamBody(new DetPhysics.BeamBody
@@ -89,7 +97,8 @@ namespace BoplSynergyMod.Patches
                 colors = playerBeamColor,
                 timePassed = timeSinceBeamStart,
                 id = beam2Id,
-                ownerId = player.Id
+                ownerId = player.Id,
+                ground = currentGround
             });
         }
 
@@ -188,14 +197,15 @@ namespace BoplSynergyMod.Patches
                 var targetBody = hit.pp.fixTrans.GetComponent<BoplBody>();
                 if (targetBody != null)
                 {
-                    // Уменьшаем медленнее чем увеличиваем: 0.1 вместо 0.2
-                    Fix shrinkPerSecond = (Fix)0.1;
+                    // Уменьшаем медленнее: -0.1 вместо +0.2
+                    Fix shrinkPerSecond = (Fix)(-0.1);
                     Fix shrinkThisFrame = shrinkPerSecond * deltaTime;
 
-                    // Минимальный размер 0.1 чтобы не исчезло
-                    if (targetBody.Scale > (Fix)0.1)
+                    // Применяем изменение с минимальным размером 0.1
+                    Fix newScale = targetBody.Scale + shrinkThisFrame;
+                    if (newScale > (Fix)0.1)
                     {
-                        targetBody.Scale = Fix.Max(targetBody.Scale - shrinkThisFrame, (Fix)0.1);
+                        targetBody.Scale = newScale;
                     }
                 }
             }
