@@ -83,9 +83,17 @@ namespace BoplSynergyMod.Patches
                     }
                 }
 
+                // Сбрасываем флаг только если кнопки не нажаты
+                // НЕ удаляем activeBeamSynergy - он должен оставаться пока луч активен
                 if (pressedButtons.Count < 2)
                 {
                     synergyActiveThisFrame[playerId] = false;
+                }
+
+                // Очищаем activeBeamSynergy только когда игрок НЕ в способности
+                // (луч закончился)
+                if (!isInAbility && activeBeamSynergy.ContainsKey(playerId))
+                {
                     activeBeamSynergy.Remove(playerId);
                 }
 
